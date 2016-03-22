@@ -53,8 +53,10 @@ extern float SPD_measure(float kot_iz_senzorja);
 **************************************************************/
 float zeljena = 0.0;
 
-
-
+/**************************************************************
+* spremenljivke, ki jih potrebujemo za alfa beta filter
+**************************************************************/
+float hitrost_abf = 0.0;
 
 
 
@@ -129,7 +131,9 @@ void interrupt PER_int(void)
         hitrost_narejena = SPD_measure(kot_iz_senzorja);
         
         
-        
+        /*******************************************************
+        * Tukaj pride koda za alfa beta filter
+        *******************************************************/
         
 
         /*******************************************************
@@ -204,9 +208,9 @@ void PER_int_setup(void)
 
     dlog.trig = &ref_counter;
     dlog.iptr1 = &kot_iz_senzorja;
-    dlog.iptr2 = &hitrost;
-    dlog.iptr3 = &hitrost_narejena;
-    dlog.iptr4 = &hitrost;
+    dlog.iptr2 = &hitrost_narejena;
+    dlog.iptr3 = &hitrost;
+    dlog.iptr4 = &hitrost_abf;
 
 
 
