@@ -17,6 +17,20 @@ float   tok = 0.0;
 // vklopno razmerje
 float   duty = 0.0;
 
+// uporabljeni spremenljivke
+float error=0.0;//trenutna napaka,pogrešek
+float error_total=0.0;//akumilirana napaka
+float last_error=0.0; //zadnja napaka
+float output=0.0; //iz regulatorja
+//float integral=0.0;
+float K_p=0.723; //proporcionalno ojaèenja
+float K_i=0.000207;//integrator-ojaèenja
+float K_d=0.000023;//difernciator
+//float dt=0.00005;
+float   P_clen=0.0;
+float   I_clen=0.0;
+float   D_clen=0.0;
+
 // za kalibracijo preostale napetosti tokovne sonde
 bool    offset_calib = TRUE;
 long    offset_counter = 0;
@@ -33,6 +47,7 @@ float   ref_counter_cmpr = 5L * SAMPLE_FREQ/2;
 float   ref_value_low = 0.0;
 float   ref_value_high = 0.5;
 float   ref_value = 0.0;
+
 
 // spremenljikva s katero štejemo kolikokrat se je prekinitev predolgo izvajala
 int     interrupt_overflow_counter = 0;
@@ -57,9 +72,6 @@ float zeljena = 0.0;
 * spremenljivke, ki jih potrebujemo za alfa beta filter
 **************************************************************/
 float hitrost_abf = 0.0;
-
-
-
 /**************************************************************
 * Prekinitev, ki v kateri se izvaja regulacija
 **************************************************************/
@@ -67,7 +79,9 @@ float hitrost_abf = 0.0;
 void interrupt PER_int(void)
 {
     /* lokalne spremenljivke */
-    
+
+
+//	float new_speed;
     // najprej povem da sem se odzzval na prekinitev
     // Spustimo INT zastavico casovnika ePWM1
     EPwm1Regs.ETCLR.bit.INT = 1;
@@ -140,17 +154,60 @@ void interrupt PER_int(void)
         * Tukaj pride koda regulatorja hitrosti
         *******************************************************/
         zeljena = ref_value;
+      //  error=zeljena-hitrost_narejena;
+        //error_total=error_total+error*dt;
+       // error_total+=error;
+       // P_clen=error*K_p;
+     //   I_clen=error_total*K_i;
+       // D_clen=(error-last_error)*K_d;
+        //last error
+        //I_clen=integral+K_i*error;
+       // D_clen=(error-last_error)/dt;
+
+        if(zeljena==0.0)
+        {
+        error=0.0; //vsak cikel ponovno resetiraj napako
+        output=0.0;
+        error_total=0.0;  //resetiraj akumulirano napako, ko je zeljena vrednost 0
+        }
+        else
+        {
+        error=zeljena-hitrost_narejena; //izraèuna trenutno napako
+        error_total+=error; //napako prištej skupni napaki
+
+        }
+        last_error=error; //zadnja napaka
+        P_clen=error*K_p;
+        I_clen=error_total*K_i;
+        D_clen=(error-last_error)*K_d;
+
+        output=P_clen+I_clen+D_clen; //izhod iz regulatorja
+
+        //set output value
+
+       if(output < 0.0) //duty omejimo med 0 in 1
+        	{
+       	duty=0.0;
+        	}
+        else
+        	{
+        	if(output >=1.0)
+        		{
+        			duty=1.0;
+        		}
+        	else
+        		{
+        			duty=output;
+        		}
+        	 }
 
 
-        
-        
-        
-        
-        
-        // dokler ni regulatorja, stroj samo krmilim, tako da lahko vsaj testiram
+
+       //last_error=error;
+
         // meritev hitrosti
-        duty = ref_value;
-
+        //duty = ref_value;
+      //  duty= new_speed;
         // osvežim vklono razmerje
         PWM_update(duty);
         
