@@ -18,15 +18,18 @@ float   tok = 0.0;
 float   duty = 0.0;
 
 // uporabljeni spremenljivke
+
 float error=0.0;//trenutna napaka,pogrešek
 float error_total=0.0;//akumilirana napaka
 float last_error=0.0; //zadnja napaka
 float output=0.0; //iz regulatorja
-//float integral=0.0;
+int negative_speed_flag=0.0;//zazna negativno vrednost napetosti
+
+
 float K_p=0.723; //proporcionalno ojaèenja
 float K_i=0.000207;//integrator-ojaèenja
 float K_d=0.000023;//difernciator
-//float dt=0.00005;
+
 float   P_clen=0.0;
 float   I_clen=0.0;
 float   D_clen=0.0;
@@ -45,7 +48,7 @@ float   ref_counter = 0;
 float   ref_counter_prd = 5L * SAMPLE_FREQ;
 float   ref_counter_cmpr = 5L * SAMPLE_FREQ/2;
 float   ref_value_low = 0.0;
-float   ref_value_high = 0.5;
+float   ref_value_high = 0.5; //-0.5 obrnemo smer zeljene vrednosti
 float   ref_value = 0.0;
 
 
@@ -154,15 +157,15 @@ void interrupt PER_int(void)
         * Tukaj pride koda regulatorja hitrosti
         *******************************************************/
         zeljena = ref_value;
-      //  error=zeljena-hitrost_narejena;
-        //error_total=error_total+error*dt;
-       // error_total+=error;
-       // P_clen=error*K_p;
-     //   I_clen=error_total*K_i;
-       // D_clen=(error-last_error)*K_d;
-        //last error
-        //I_clen=integral+K_i*error;
-       // D_clen=(error-last_error)/dt;
+
+        if (zeljena<0) //preverjanje smeri zeljene vrednosti hitrosti
+        {
+        	negative_speed_flag=1;
+        }
+        else
+        {
+          	negative_speed_flag=0;
+        }
 
         if(zeljena==0.0)
         {
@@ -170,45 +173,66 @@ void interrupt PER_int(void)
         output=0.0;
         error_total=0.0;  //resetiraj akumulirano napako, ko je zeljena vrednost 0
         }
+
+        if((zeljena!=0)&&(negative_speed_flag==1))
+        {
+        error=zeljena*(-1)-hitrost_narejena*(-1); //izraèuna trenutno napako
+        error_total+=error; //napako prištej skupni napaki
+        }
         else
         {
         error=zeljena-hitrost_narejena; //izraèuna trenutno napako
         error_total+=error; //napako prištej skupni napaki
-
         }
+
         last_error=error; //zadnja napaka
+        //regulacijski èleni
         P_clen=error*K_p;
         I_clen=error_total*K_i;
         D_clen=(error-last_error)*K_d;
 
         output=P_clen+I_clen+D_clen; //izhod iz regulatorja
 
-        //set output value
+        if(zeljena==0.0) //v mirovanju ponovno resetiraj vrednosti
+             {
+             error=0.0; //vsak cikel ponovno resetiraj napako
+             output=0.0;
+             error_total=0.0;  //resetiraj akumulirano napako, ko je zeljena vrednost 0
+             }
 
-       if(output < 0.0) //duty omejimo med 0 in 1
+        if(output < 0.0) //duty omejimo med 0 in 1
         	{
-       	duty=0.0;
+        	duty=0.0;
         	}
         else
         	{
         	if(output >=1.0)
         		{
+        		if(negative_speed_flag==1) // omeji duty cycle glede na predznak hitrosti
+        			{
+        	     duty=(-1.0);
+        			}
+        		else
+        			{
         			duty=1.0;
+        			}
         		}
         	else
         		{
-        			duty=output;
+        			if(negative_speed_flag==1) // omeji duty cycle glede na predznak hitrosti
+        			{
+        				duty=output*(-1);
+        			}
+        			else
+        			{
+        				duty=output;
+         			}
         		}
         	 }
 
-
-
-       //last_error=error;
-
         // meritev hitrosti
         //duty = ref_value;
-      //  duty= new_speed;
-        // osvežim vklono razmerje
+        // osvežim vklopno razmerje
         PWM_update(duty);
         
         // spavim vrednosti v buffer za prikaz
