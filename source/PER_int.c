@@ -28,7 +28,9 @@ int negative_speed_flag=0.0;//zazna negativno vrednost napetosti
 
 float K_p=0.723; //proporcionalno ojaèenja
 float K_i=0.000207;//integrator-ojaèenja
-float K_d=0.000023;//difernciator
+//float K_d=0.000023;
+float K_d=10000000000;
+float razlika;
 
 float   P_clen=0.0;
 float   I_clen=0.0;
@@ -185,11 +187,13 @@ void interrupt PER_int(void)
         error_total+=error; //napako prištej skupni napaki
         }
 
-        last_error=error; //zadnja napaka
+         //zadnja napaka
         //regulacijski èleni
         P_clen=error*K_p;
         I_clen=error_total*K_i;
-        D_clen=(error-last_error)*K_d;
+        razlika=error - last_error;
+        D_clen=K_d*(error - last_error);
+        last_error=error;
 
         output=P_clen+I_clen+D_clen; //izhod iz regulatorja
 
@@ -291,8 +295,8 @@ void PER_int_setup(void)
     dlog.iptr1 = &kot_iz_senzorja;
     dlog.iptr2 = &hitrost_narejena;
     dlog.iptr3 = &hitrost;
-    dlog.iptr4 = &hitrost_abf;
-
+    //dlog.iptr4 = &hitrost_abf;
+    dlog.iptr4 = &razlika;
 
 
     // registriram prekinitveno rutino
