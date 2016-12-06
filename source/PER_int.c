@@ -23,15 +23,12 @@ float error=0.0;//trenutna napaka,pogrešek
 float error_total=0.0;//akumilirana napaka
 float last_error=0.0; //zadnja napaka
 float output=0.0; //iz regulatorja
-int negative_speed_flag=0.0;//zazna negativno vrednost napetosti
+float sum=0.0;
 
-
+//Ojaèenja
 float K_p=0.723; //proporcionalno ojaèenja
-float K_i=0.000207;//integrator-ojaèenja
-//float K_d=0.000023;
-float K_d=10000000000;
-float razlika;
-
+float K_i=0.0000207;//integrator-ojaèenja
+float K_d=1;
 float   P_clen=0.0;
 float   I_clen=0.0;
 float   D_clen=0.0;
@@ -86,7 +83,7 @@ void interrupt PER_int(void)
     /* lokalne spremenljivke */
 
 
-//	float new_speed;
+
     // najprej povem da sem se odzzval na prekinitev
     // Spustimo INT zastavico casovnika ePWM1
     EPwm1Regs.ETCLR.bit.INT = 1;
@@ -156,86 +153,45 @@ void interrupt PER_int(void)
         
 
         /*******************************************************
-        * Tukaj pride koda regulatorja hitrosti
+        REGULACIJA HITROSTI
         *******************************************************/
-        zeljena = ref_value;
-
-        if (zeljena<0) //preverjanje smeri zeljene vrednosti hitrosti
-        {
-        	negative_speed_flag=1;
-        }
-        else
-        {
-          	negative_speed_flag=0;
-        }
-
-        if(zeljena==0.0)
-        {
-        error=0.0; //vsak cikel ponovno resetiraj napako
-        output=0.0;
-        error_total=0.0;  //resetiraj akumulirano napako, ko je zeljena vrednost 0
-        }
-
-        if((zeljena!=0)&&(negative_speed_flag==1))
-        {
-        error=zeljena*(-1)-hitrost_narejena*(-1); //izraèuna trenutno napako
-        error_total+=error; //napako prištej skupni napaki
-        }
-        else
-        {
+        zeljena = ref_value; //željena vrednost napetosti
+        //Izraèun napak
         error=zeljena-hitrost_narejena; //izraèuna trenutno napako
         error_total+=error; //napako prištej skupni napaki
-        }
 
-         //zadnja napaka
         //regulacijski èleni
-        P_clen=error*K_p;
-        I_clen=error_total*K_i;
-        razlika=error - last_error;
-        D_clen=K_d*(error - last_error);
+        P_clen=error*K_p;  //proporcionalni èlen
+        I_clen=error_total*K_i;//integrator
+        D_clen=K_d*(error - last_error);//diferncialni èlen
         last_error=error;
 
-        output=P_clen+I_clen+D_clen; //izhod iz regulatorja
+        sum=P_clen+I_clen+D_clen; //izhod iz regulatorja
+        output=sum;
 
-        if(zeljena==0.0) //v mirovanju ponovno resetiraj vrednosti
-             {
-             error=0.0; //vsak cikel ponovno resetiraj napako
-             output=0.0;
-             error_total=0.0;  //resetiraj akumulirano napako, ko je zeljena vrednost 0
-             }
+        //OMEJITVE duty cycle:
+        if (sum > 1.0) //zgornja meja duty pri pozitivni zeljeni hitrosti
+        {
+          	output=1.0;
+        }
 
-        if(output < 0.0) //duty omejimo med 0 in 1
-        	{
-        	duty=0.0;
-        	}
-        else
-        	{
-        	if(output >=1.0)
-        		{
-        		if(negative_speed_flag==1) // omeji duty cycle glede na predznak hitrosti
-        			{
-        	     duty=(-1.0);
-        			}
-        		else
-        			{
-        			duty=1.0;
-        			}
-        		}
-        	else
-        		{
-        			if(negative_speed_flag==1) // omeji duty cycle glede na predznak hitrosti
-        			{
-        				duty=output*(-1);
-        			}
-        			else
-        			{
-        				duty=output;
-         			}
-        		}
-        	 }
+        if((sum < 0.0)&&(zeljena > 0.0)) //spodnja meja duty pri pozitivni zeljeni hitrosti
+       	{
+        	output=0.0;
+       	}
 
-        // meritev hitrosti
-        //duty = ref_value;
+        if ((sum > 0.0)&&(zeljena < 0.0)) //zgornja meja duty pri negativni zeljeni hitrosti
+        {
+        	output=0.0;
+     	}
+
+        if (sum < -1) //spodnja meja duty pri negativni zeljeni hitrosti
+         {
+        	output=(-1.0);
+         }
+
+		duty=output;
+
         // osvežim vklopno razmerje
         PWM_update(duty);
         
@@ -293,10 +249,11 @@ void PER_int_setup(void)
 
     dlog.trig = &ref_counter;
     dlog.iptr1 = &kot_iz_senzorja;
+   // dlog.iptr2 = &D_clen;
     dlog.iptr2 = &hitrost_narejena;
     dlog.iptr3 = &hitrost;
-    //dlog.iptr4 = &hitrost_abf;
-    dlog.iptr4 = &razlika;
+    dlog.iptr4 = &hitrost_abf;
+
 
 
     // registriram prekinitveno rutino
