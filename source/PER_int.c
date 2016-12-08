@@ -1,3 +1,4 @@
+
 /****************************************************************
 * FILENAME:     PER_int.c
 * DESCRIPTION:  periodic interrupt code
@@ -57,6 +58,13 @@ float zeljena = 0.0;
 * spremenljivke, ki jih potrebujemo za alfa beta filter
 **************************************************************/
 float hitrost_abf = 0.0;
+
+float kot_abf = 0;
+float epsilon = 0;
+float dt = 5e-5;
+float alpha = 0.0883642;
+float betha = 0.0000142122;
+float pi = 3.14159265359;
 
 
 
@@ -134,7 +142,31 @@ void interrupt PER_int(void)
         /*******************************************************
         * Tukaj pride koda za alfa beta filter
         *******************************************************/
-        
+        kot_iz_senzorja *=2*pi/1024;
+
+                kot_abf+=2*pi*hitrost_abf*dt;
+                if(kot_abf>2*pi)
+                {
+                	kot_abf-=2*pi;
+                                }
+                if(kot_abf < 0 )
+                {
+                	kot_abf +=2*pi;
+                }
+
+                epsilon= kot_iz_senzorja - kot_abf;
+                if(epsilon>pi)
+                {
+                	epsilon-=2*pi;
+                }
+                if(epsilon < -pi )
+                {
+                	epsilon +=2*pi;
+                }
+
+                 kot_abf+= alpha*epsilon;
+
+                 hitrost_abf=((hitrost_abf)+((betha/dt)*epsilon));
 
         /*******************************************************
         * Tukaj pride koda regulatorja hitrosti
