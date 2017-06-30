@@ -48,6 +48,23 @@ float hitrost = 0.0;
 float hitrost_narejena = 0.0;
 extern float SPD_measure(float kot_iz_senzorja);
 
+
+// racunanje s tekocim oknom
+float hitrost_kot = 0;
+float kot_a[4000];
+int   stevec = 0;
+float cas_okna = 0;
+float doseg = 1024;
+float kot_trenutni = 0;
+float kot_prejsni = 0;
+float razlika = 0;
+float frekvenca_kot = 20000;
+
+// racunanje s CAP enoto
+float cas = 0.0;
+float hitrost_CAP = 0.0;
+float frekvenca_CAP = 80000000;
+
 /**************************************************************
 * spremenljivke, ki jih potrebujemo za regulacijo hitrosti
 **************************************************************/
@@ -124,13 +141,70 @@ void interrupt PER_int(void)
         /*******************************************************
         * Tukaj pride koda izracuna hitrosti
         *******************************************************/
+
+        //************racunanje s tekocim oknom***************
+
         // preberem kot iz senzorja
         kot_iz_senzorja = SPI_getkot();
-
-        // izracunam hitrost
         hitrost_narejena = SPD_measure(kot_iz_senzorja);
         
-        
+        kot_a[stevec] = kot_iz_senzorja;
+		kot_prejsni = kot_a[(stevec  + 2000) % 4000];
+		kot_trenutni = kot_a[stevec];
+		razlika = kot_trenutni - kot_prejsni;	//razlika trenutnega in prejsnega kota
+		stevec  = (stevec  + 1) % 4000;
+
+		cas_okna = 2000 * 1 / frekvenca_kot;
+
+		// mirovanje
+		if (razlika == 0)
+		{
+			hitrost_kot = 0;
+		}
+
+		// vrtenje v pozitivno smer
+		if ((razlika > 0 && razlika < 511) || razlika < -511)
+		{
+			if (razlika < -511)
+			{
+				razlika = 1023 + kot_trenutni - kot_prejsni;	// popravek pri prehodu 360-0
+				hitrost_kot = 1/cas_okna * (razlika / doseg);	// izracun hitrosti
+			}
+			else
+			{
+			hitrost_kot = 1/cas_okna * (razlika / doseg);	// izracun hitrosti
+			}
+		}
+
+		// vrtenje v negativno smer
+		if (razlika < 0 || razlika > 511)
+		{
+			if (razlika > 511)
+			{
+				razlika = 1023 - kot_trenutni + kot_prejsni;	// popravek pri prehodu 0-360
+				hitrost_kot = (- 1/cas_okna) * (razlika / doseg);	// izracun hitrosti
+			}
+			else
+			{
+
+				hitrost_kot = 1/cas_okna * (razlika / doseg);	// izracun hitrosti
+			}
+		}
+
+		//************racunanje s CAP enoto*********************
+
+	      cas = CAP_time();
+
+	      if (cas >= 74e5)
+	      {
+	    	  hitrost_CAP = 0;
+	      }
+	      else
+	      {
+	    	  hitrost_CAP = ((frekvenca_CAP * 2) / (cas * 8.0));		// izracun hitrosti
+	      }
+
+
         /*******************************************************
         * Tukaj pride koda za alfa beta filter
         *******************************************************/

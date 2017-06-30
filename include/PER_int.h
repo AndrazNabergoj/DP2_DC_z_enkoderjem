@@ -24,6 +24,7 @@
 #include    "SPI_dajalnik.h"
 #include    "PCB_util.h"
 #include    "math.h"
+#include    "CAP.h"
 
 #include    "DLOG_gen.h"
 

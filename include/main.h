@@ -26,5 +26,6 @@
 #include    "ADC_drv.h"
 #include    "SPI_dajalnik.h"
 #include    "PCB_util.h"
+#include    "CAP.h"
 
 #endif // end of __MAIN_H__ definition

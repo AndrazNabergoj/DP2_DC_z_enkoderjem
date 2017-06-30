@@ -43,6 +43,9 @@ void main(void)
     // inicializiram peridoièno prekinitev za regulacijo motorja
     PER_int_setup();
 
+    // inicializacija CAP driverja
+    CAP_init();
+
     // omogocim prekinitve
     EINT;
     ERTM;
